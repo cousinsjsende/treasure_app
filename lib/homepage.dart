@@ -29,7 +29,6 @@ class _HomePageState extends State<HomePage> {
         NavigationDelegate(
           onPageFinished: (String url) async {
             if (isOnline) {
-              // Save the HTML content locally
               String? htmlContent = await controller.runJavaScriptReturningResult("document.documentElement.outerHTML") as String?;
               if (htmlContent != null) {
                 webCacheBox?.put(url, htmlContent);
@@ -46,12 +45,10 @@ class _HomePageState extends State<HomePage> {
     if (isOnline) {
       controller.loadRequest(Uri.parse(url));
     } else {
-      // Load cached HTML if offline
       String? cachedHtml = webCacheBox?.get(url);
       if (cachedHtml != null) {
         controller.loadHtmlString(cachedHtml);
       } else {
-        // Show offline message if no cache is available
         setState(() {
           isOnline = false;
         });
@@ -66,52 +63,42 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-@override
-Widget build(BuildContext context) {
-  return SafeArea(
-    child: Scaffold(
-      body: WillPopScope(
-        onWillPop: () async {
-          if (await controller.canGoBack()) {
-            // Go back in web history instead of exiting the app
-            controller.goBack();
-            return false; // Prevent default back button behavior
-          }
-          return true; // Exit the app if there's no web history
-        },
-        child: GestureDetector(
-          onTap: () async {
-            // Reload the current page when tapped
-            if (isOnline) {
-              controller.reload();
-            } else {
-              setState(() {
-                isOnline = false;
-              });
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Scaffold(
+        body: WillPopScope(
+          onWillPop: () async {
+            if (await controller.canGoBack()) {
+              controller.goBack();
+              return false;
             }
+            return true;
           },
-          onHorizontalDragEnd: (details) async {
-            // Swipe left or right to go back or forward
-            if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
-              // Swiped Left: Go forward if possible
-              if (await controller.canGoForward()) {
-                controller.goForward();
+          child: GestureDetector(
+            onTap: () async {
+              if (isOnline) {
+                controller.reload();
               }
-            } else if (details.primaryVelocity != null && details.primaryVelocity! > 0) {
-              // Swiped Right: Go back if possible
-              if (await controller.canGoBack()) {
-                controller.goBack();
+            },
+            onHorizontalDragEnd: (details) async {
+              if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
+                if (await controller.canGoForward()) {
+                  controller.goForward();
+                }
+              } else if (details.primaryVelocity != null && details.primaryVelocity! > 0) {
+                if (await controller.canGoBack()) {
+                  controller.goBack();
+                }
               }
-            }
-          },
-          child: isOnline
-              ? WebViewWidget(controller: controller)
-              : Center(child: Text('You are offline. No cached data available.')),
+            },
+            onVerticalDragUpdate: (_) {}, // Prevent back action on vertical swipe
+            child: isOnline
+                ? WebViewWidget(controller: controller)
+                : Center(child: Text('You are offline. No cached data available.')),
+          ),
         ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 }
